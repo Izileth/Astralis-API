@@ -1,0 +1,160 @@
+// This is your Prisma schema file
+// https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+/// Usuários
+
+
+
+model User {
+  id        String    @id @default(cuid())
+  name      String
+  slug      String    @unique
+  email     String    @unique
+  password  String
+  avatarUrl String?
+  bannerUrl String?
+  bio       String?
+  status    String?   @default("active")
+  verified  Boolean   @default(false)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  posts     Post[]
+  comments  Comment[]
+  likes     Like[]
+  following Follow[]  @relation("following")
+  followers Follow[]  @relation("followers")
+  socialLinks SocialLink[]
+}
+
+
+/// Seguidores / seguindo (auto-relacionamento)
+model Follow {
+  id         String   @id @default(cuid())
+  followerId String
+  followingId String
+  createdAt  DateTime @default(now())
+
+  follower   User @relation("following", fields: [followerId], references: [id])
+  following  User @relation("followers", fields: [followingId], references: [id])
+
+  @@unique([followerId, followingId]) // um usuário só segue outro uma vez
+}
+
+/// Links para redes sociais
+model SocialLink {
+  id        String @id @default(cuid())
+  platform  String // ex: facebook, twitter, instagram, linkedin
+  url       String
+  userId    String
+  user      User   @relation(fields: [userId], references: [id])
+}
+
+/// Categorias de post
+model Category {
+  id        String  @id @default(cuid())
+  name      String  @unique
+  posts     Post[]
+}
+
+/// Tags
+model Tag {
+  id        String  @id @default(cuid())
+  name      String  @unique
+  posts     PostTag[]
+}
+
+/// Posts
+model Post {
+  id             String      @id @default(cuid())
+  title          String
+  slug           String      @unique
+  description    String?
+  content        String
+  imageUrl       String?
+  videoUrl       String?
+  published      Boolean     @default(false)
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  authorId       String
+  author         User        @relation(fields: [authorId], references: [id])
+  categoryId     String?
+  category       Category?   @relation(fields: [categoryId], references: [id])
+  comments       Comment[]
+  likes          Like[]
+  tags           PostTag[]
+  relatedFrom    PostRelation[] @relation("PostRelatedFrom")
+  relatedTo      PostRelation[] @relation("PostRelatedTo")
+  sharedLinks    SharedLink[]
+}
+
+/// Relação N:N entre Post e Tag
+model PostTag {
+  postId  String
+  tagId   String
+
+  post    Post @relation(fields: [postId], references: [id])
+  tag     Tag  @relation(fields: [tagId], references: [id])
+
+  @@id([postId, tagId])
+}
+
+/// Comentários
+model Comment {
+  id        String    @id @default(cuid())
+  content   String
+  createdAt DateTime  @default(now())
+
+  postId    String
+  post      Post      @relation(fields: [postId], references: [id])
+
+  authorId  String
+  author    User      @relation(fields: [authorId], references: [id])
+}
+
+/// Curtidas
+model Like {
+  id        String    @id @default(cuid())
+  createdAt DateTime  @default(now())
+
+  postId    String
+  post      Post      @relation(fields: [postId], references: [id])
+
+  userId    String
+  user      User      @relation(fields: [userId], references: [id])
+
+  @@unique([postId, userId])
+}
+
+/// Posts relacionados (auto-referência)
+model PostRelation {
+  id           String @id @default(cuid())
+  postId       String
+  relatedPostId String
+
+  // Usando nomes de relação diferentes para evitar conflito
+  post         Post   @relation("PostRelatedFrom", fields: [postId], references: [id])
+  relatedPost  Post   @relation("PostRelatedTo", fields: [relatedPostId], references: [id])
+  
+  @@unique([postId, relatedPostId])
+}
+
+/// Links compartilhados (ex: redes sociais)
+model SharedLink {
+  id        String   @id @default(cuid())
+  platform  String   // ex: facebook, twitter
+  url       String
+  postId    String
+  post      Post     @relation(fields: [postId], references: [id])
+}
