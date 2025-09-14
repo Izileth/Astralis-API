@@ -1,6 +1,7 @@
 import { prisma } from "../prisma/client";
 import { slugify } from "../utils/slugfy";
 export const userService = {
+
   // Criar usuário
   create: async (name: string, email: string, password: string, avatarUrl?: string, bannerUrl?: string, bio?: string) => {
     const slugBase = slugify(name);
@@ -92,9 +93,46 @@ export const userService = {
   },
 
   // Adicionar link social
+ 
   addSocialLink: async (userId: string, platform: string, url: string) => {
+    // Debug: verificar se os parâmetros estão chegando corretamente
+    console.log('SERVICE - addSocialLink - Parâmetros recebidos:', { 
+      userId, 
+      platform, 
+      url,
+      userIdType: typeof userId,
+      platformType: typeof platform,
+      urlType: typeof url
+    });
+    
+    // Validar parâmetros
+    if (!userId || userId === 'undefined') {
+      throw new Error("userId é obrigatório e não pode ser undefined");
+    }
+    if (!platform || platform === 'undefined') {
+      throw new Error("platform é obrigatório e não pode ser undefined");
+    }
+    if (!url || url === 'undefined') {
+      throw new Error("url é obrigatório e não pode ser undefined");
+    }
+    
+    // Verificar se o usuário existe primeiro
+    const userExists = await prisma.user.findUnique({
+      where: { id: userId }
+    });
+    
+    if (!userExists) {
+      throw new Error(`Usuário com ID ${userId} não encontrado`);
+    }
+    
+    console.log('SERVICE - Criando socialLink com dados:', { userId, platform, url });
+    
     return prisma.socialLink.create({
-      data: { userId, platform, url },
+      data: {
+        userId,
+        platform,
+        url,
+      },
     });
   },
 

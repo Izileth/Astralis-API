@@ -6,7 +6,7 @@ const router = Router();
 
 // CRUD básico
 router.post("/", userController.create); // Criar usuário (público)
-router.get("/", requireAuth, userController.findAll); // Listar usuários (privado)
+router.get("/profile", requireAuth, userController.findAll); // Listar usuários (privado)
 router.get("/profile/:slug", optionalAuth, userController.findBySlug); // Perfil por slug (público)
 router.get("/:id", optionalAuth, userController.findById); // Perfil por ID (público)
 router.put("/:id", requireAuth, userController.update); // Atualizar usuário (privado)
@@ -19,8 +19,8 @@ router.get("/:id/followers", optionalAuth, userController.getFollowers); // List
 router.get("/:id/following", optionalAuth, userController.getFollowing); // Lista seguindo (público)
 
 // Links sociais
-router.post("/social", requireAuth, userController.addSocialLink); // Adicionar link social (privado)
+router.post("/:id/social-links", requireAuth, userController.addSocialLink); // Adicionar link social (privado)
 router.get("/:id/social", optionalAuth, userController.getSocialLinks); // Ver links sociais (público)
-router.delete("/social/:id", requireAuth, userController.removeSocialLink); // Remover link social (privado)
+router.delete("/:id/social-links", requireAuth, userController.removeSocialLink); // Remover link social (privado)
 
 export default router;
