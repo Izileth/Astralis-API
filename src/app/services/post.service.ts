@@ -1,7 +1,133 @@
 import { prisma } from "../prisma/client";
 import { slugify } from "../utils/slugfy";
+
+export type PostWithRelations = {
+  id: string;
+  title: string;
+  slug: string;
+  description?: string | null;
+  content: string;
+  imageUrl?: string | null;
+  videoUrl?: string | null;
+  published: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+
+  authorId: string;
+  author?: {
+    id: string;
+    name: string;
+    slug: string;
+    email?: string;          // obrigatório no schema
+    avatarUrl?: string | null;
+    bannerUrl?: string | null;
+    bio?: string | null;
+    status?: string | null;
+    verified: boolean;
+  };
+
+  categoryId?: string | null;
+  category: {
+    id: string;
+    name: string;
+  } | null;
+
+  comments: Array<{
+    id: string;
+    content: string;
+    createdAt: Date;
+    authorId: string;
+    author: {
+      id: string;
+      name: string;
+      slug: string;
+      email?: string;          
+      avatarUrl?: string | null;
+      verified: boolean;
+    };
+  }>;
+
+  tags: Array<{
+    postId: string;
+    tagId: string;
+    tag: {
+      id: string;
+      name: string;
+    };
+  }>;
+
+  likes: Array<{
+    id: string;
+    userId: string;
+  }>;
+
+  sharedLinks: Array<{
+    id: string;
+    platform: string;
+    url: string;
+    postId: string;
+  }>;
+
+  relatedTo: Array<{
+    id: string;
+    postId: string;
+    relatedPostId: string;
+    relatedPost: {
+      id: string;
+      title: string;
+      slug: string;
+      author: {
+        id: string;
+        name: string;
+        email?: string;
+      };
+      category: {
+        id: string;
+        name: string;
+      } | null;
+    };
+  }>;
+
+  relatedFrom: Array<{
+    id: string;
+    postId: string;
+    relatedPostId: string;
+    post: {
+      id: string;
+      title: string;
+      slug: string;
+      author: {
+        id: string;
+        name: string;
+        email?: string;
+      };
+      category: {
+        id: string;
+        name: string;
+      } | null;
+    };
+  }>;
+
+  _count?: {
+    likes: number;
+    comments: number;
+  };
+};
+
+
 export const postService = {
-  // Criar post
+
+  findByIdOrThrow: async (id: string): Promise<PostWithRelations> => {
+    const post = await postService.findById(id);
+    
+    if (!post) {
+      throw new Error(`Post with id '${id}' not found`);
+    }
+
+    
+    return post;
+  },
+
   create: async (
     authorId: string,
     title: string,
@@ -10,83 +136,203 @@ export const postService = {
       description?: string;
       imageUrl?: string;
       videoUrl?: string;
-      categoryId?: string;
-      tagIds?: string[];
+      categoryName?: string;
+      tagNames?: string[];
       relatedPostIds?: string[];
       sharedLinks?: { platform: string; url: string }[];
     }
-  ) => {
-    const { description, imageUrl, videoUrl, categoryId, tagIds, relatedPostIds, sharedLinks } = options || {};
+  ): Promise<PostWithRelations> => {
+    try {
+      const { description, imageUrl, videoUrl, categoryName, tagNames, relatedPostIds, sharedLinks } = options || {};
 
-    const slugBase = slugify(title);
-    let slug = slugBase;
-    let count = 1;
+      const slugBase = slugify(title);
+      let slug = slugBase;
+      let count = 1;
 
-    // Garantir slug único
-    while (await prisma.post.findUnique({ where: { slug } })) {
-      slug = `${slugBase}-${count++}`;
-    }
+      // Garantir slug único
+      while (await prisma.post.findUnique({ where: { slug } })) {
+        slug = `${slugBase}-${count++}`;
+      }
 
+      // Criar ou buscar categoria se fornecida
+      let categoryId: string | undefined;
+      if (categoryName) {
+        const category = await prisma.category.upsert({
+          where: { name: categoryName },
+          update: {},
+          create: { name: categoryName }
+        });
+        categoryId = category.id;
+      }
 
-    // Primeiro criar o post
-    const post = await prisma.post.create({
-      data: {
-        authorId,
-        title,
-        content,
-        description,
-        slug,
-        imageUrl,
-        videoUrl,
-        categoryId,
-        tags: {
-          create: tagIds?.map(tagId => ({ tagId })) || [],
+      // Criar ou buscar tags se fornecidas
+      let tagConnections: { tagId: string }[] = [];
+      if (tagNames && tagNames.length > 0) {
+        const tagPromises = tagNames.map(tagName =>
+          prisma.tag.upsert({
+            where: { name: tagName },
+            update: {},
+            create: { name: tagName }
+          })
+        );
+        const tags = await Promise.all(tagPromises);
+        tagConnections = tags.map(tag => ({ tagId: tag.id }));
+      }
+
+      // Criar o post
+      const post = await prisma.post.create({
+        data: {
+          authorId,
+          title,
+          content,
+          description,
+          slug,
+          imageUrl,
+          videoUrl,
+          categoryId,
+          tags: {
+            create: tagConnections,
+          },
+          sharedLinks: {
+            create: sharedLinks?.map(link => ({ platform: link.platform, url: link.url })) || [],
+          },
         },
-        sharedLinks: {
-          create: sharedLinks?.map(link => ({ platform: link.platform, url: link.url })) || [],
-        },
-      },
-    });
-
-    // Depois criar as relações se houver
-    if (relatedPostIds && relatedPostIds.length > 0) {
-      await prisma.postRelation.createMany({
-        data: relatedPostIds.map(relatedPostId => ({
-          postId: post.id,
-          relatedPostId
-        })),
-        skipDuplicates: true
       });
-    }
 
-    // Retornar o post com todas as relações
-    return prisma.post.findUnique({
-      where: { id: post.id },
-      include: { 
-        author: true,
-        category: true,
-        tags: { include: { tag: true } }, 
-    
-        relatedTo: { include: { relatedPost: true } }, 
-        relatedFrom: { include: { post: true } },
-        sharedLinks: true 
-      },
-    });
+      // Criar as relações se houver
+      if (relatedPostIds && relatedPostIds.length > 0) {
+        await prisma.postRelation.createMany({
+          data: relatedPostIds.map(relatedPostId => ({
+            postId: post.id,
+            relatedPostId
+          })),
+          skipDuplicates: true
+        });
+      }
+
+      // USAR O MÉTODO SEGURO - garante retorno tipado ou erro
+      return await postService.findByIdOrThrow(post.id);
+
+    } catch (error) {
+      console.error('Error creating post:', error);
+      throw error; // Re-lança o erro para que o controller possa capturar
+    }
   },
 
+
   // Buscar todos posts
-  findAll: async () => {
+  findAll: async (filters?: {
+    published?: boolean;
+    categoryName?: string;
+    tagNames?: string[];
+    authorId?: string;
+    search?: string;
+  }) => {
+    const where: any = {};
+
+    if (filters?.published !== undefined) {
+      where.published = filters.published;
+    }
+
+    if (filters?.categoryName) {
+      where.category = {
+        name: {
+          contains: filters.categoryName,
+          mode: 'insensitive'
+        }
+      };
+    }
+
+    if (filters?.tagNames && filters.tagNames.length > 0) {
+      where.tags = {
+        some: {
+          tag: {
+            name: {
+              in: filters.tagNames
+            }
+          }
+        }
+      };
+    }
+
+    if (filters?.authorId) {
+      where.authorId = filters.authorId;
+    }
+
+    if (filters?.search) {
+      where.OR = [
+        {
+          title: {
+            contains: filters.search,
+            mode: 'insensitive'
+          }
+        },
+        {
+          content: {
+            contains: filters.search,
+            mode: 'insensitive'
+          }
+        },
+        {
+          description: {
+            contains: filters.search,
+            mode: 'insensitive'
+          }
+        }
+      ];
+    }
+
     return prisma.post.findMany({
+      where,
       include: { 
-        author: true, 
+        author: {
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+            avatarUrl: true,
+            verified: true
+          }
+        }, 
         category: true, 
         tags: { include: { tag: true } }, 
-        relatedTo: { include: { relatedPost: true } },
-        relatedFrom: { include: { post: true } },
-        sharedLinks: true, 
-        comments: { include: { author: true } }, 
-        likes: { include: { user: true } } 
+        relatedTo: { 
+          include: { 
+            relatedPost: {
+              select: {
+                id: true,
+                title: true,
+                slug: true,
+                imageUrl: true,
+                description: true
+              }
+            }
+          } 
+        },
+        relatedFrom: { 
+          include: { 
+            post: {
+              select: {
+                id: true,
+                title: true,
+                slug: true,
+                imageUrl: true,
+                description: true
+              }
+            }
+          } 
+        },
+        sharedLinks: true,
+        _count: {
+          select: {
+            comments: true,
+            likes: true
+          }
+        }
       },
+      orderBy: {
+        createdAt: 'desc'
+      }
     });
   },
 
@@ -95,14 +341,93 @@ export const postService = {
     return prisma.post.findUnique({ 
       where: { slug }, 
       include: { 
-        author: true, 
+        author: {
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+            avatarUrl: true,
+            verified: true,
+            bio: true
+          }
+        }, 
         category: true, 
         tags: { include: { tag: true } }, 
-        relatedTo: { include: { relatedPost: true } },
-        relatedFrom: { include: { post: true } },
+        relatedTo: { 
+          include: { 
+            relatedPost: {
+              include: {
+                author: {
+                  select: {
+                    id: true,
+                    name: true,
+                    slug: true,
+                    avatarUrl: true
+                  }
+                },
+                category: true,
+                _count: {
+                  select: {
+                    likes: true,
+                    comments: true
+                  }
+                }
+              }
+            }
+          } 
+        },
+        relatedFrom: { 
+          include: { 
+            post: {
+              include: {
+                author: {
+                  select: {
+                    id: true,
+                    name: true,
+                    slug: true,
+                    avatarUrl: true
+                  }
+                },
+                category: true,
+                _count: {
+                  select: {
+                    likes: true,
+                    comments: true
+                  }
+                }
+              }
+            }
+          } 
+        },
         sharedLinks: true, 
-        comments: { include: { author: true } }, 
-        likes: { include: { user: true } } 
+        comments: { 
+          include: { 
+            author: {
+              select: {
+                id: true,
+                name: true,
+                slug: true,
+                avatarUrl: true,
+                verified: true
+              }
+            }
+          },
+          orderBy: {
+            createdAt: 'desc'
+          }
+        }, 
+        likes: { 
+          include: { 
+            user: {
+              select: {
+                id: true,
+                name: true,
+                slug: true,
+                avatarUrl: true
+              }
+            }
+          } 
+        } 
       },
     });
   },
@@ -112,19 +437,86 @@ export const postService = {
     return prisma.post.findUnique({
       where: { id },
       include: { 
-        author: true, 
+        author: {
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+            avatarUrl: true,
+            verified: true,
+            bio: true
+          }
+        }, 
         category: true, 
         tags: { include: { tag: true } }, 
-        relatedTo: { include: { relatedPost: true } },
-        relatedFrom: { include: { post: true } },
+        relatedTo: { 
+          include: { 
+            relatedPost: {
+              include: {
+                author: {
+                  select: {
+                    id: true,
+                    name: true,
+                    slug: true,
+                    avatarUrl: true
+                  }
+                },
+                category: true
+              }
+            }
+          } 
+        },
+        relatedFrom: { 
+          include: { 
+            post: {
+              include: {
+                author: {
+                  select: {
+                    id: true,
+                    name: true,
+                    slug: true,
+                    avatarUrl: true
+                  }
+                },
+                category: true
+              }
+            }
+          } 
+        },
         sharedLinks: true, 
-        comments: { include: { author: true } }, 
-        likes: { include: { user: true } } 
+        comments: { 
+          include: { 
+            author: {
+              select: {
+                id: true,
+                name: true,
+                slug: true,
+                avatarUrl: true,
+                verified: true
+              }
+            }
+          },
+          orderBy: {
+            createdAt: 'desc'
+          }
+        }, 
+        likes: { 
+          include: { 
+            user: {
+              select: {
+                id: true,
+                name: true,
+                slug: true,
+                avatarUrl: true
+              }
+            }
+          } 
+        } 
       },
     });
   },
 
-  // Atualizar post
+  // Atualizar post com sistema dinâmico
   update: async (
     id: string,
     data: Partial<{
@@ -133,69 +525,118 @@ export const postService = {
       description: string;
       imageUrl: string;
       videoUrl: string;
-      categoryId: string;
-      tagIds: string[];
+      categoryName: string;
+      tagNames: string[];
       relatedPostIds: string[];
       sharedLinks: { platform: string; url: string }[];
       published: boolean;
     }>
-  ) => {
-    const { tagIds, relatedPostIds, sharedLinks, ...rest } = data;
+  ): Promise<PostWithRelations> => {
+    try {
+      const { tagNames, relatedPostIds, sharedLinks, categoryName, ...rest } = data;
 
-    // Atualizar os campos básicos do post
-    await prisma.post.update({
-      where: { id },
-      data: {
-        ...rest,
-        // Atualizar tags
-        tags: tagIds ? { 
-          deleteMany: {}, 
-          create: tagIds.map(tagId => ({ tagId })) 
-        } : undefined,
-        // Atualizar links
-        sharedLinks: sharedLinks ? { 
-          deleteMany: {}, 
-          create: sharedLinks.map(link => ({ platform: link.platform, url: link.url })) 
-        } : undefined,
-      },
-    });
+      // Verificar se o post existe antes de tentar atualizar
+      const existingPost = await prisma.post.findUnique({ where: { id } });
+      if (!existingPost) {
+        throw new Error(`Post with id '${id}' not found`);
+      }
 
-    // Atualizar posts relacionados separadamente se fornecido
-    if (relatedPostIds !== undefined) {
-      // Deletar relações existentes onde este post é o "post principal"
-      await prisma.postRelation.deleteMany({
-        where: { postId: id }
+      // Processar categoria se fornecida
+      let categoryId: string | undefined | null = undefined;
+      if (categoryName !== undefined) {
+        if (categoryName) {
+          const category = await prisma.category.upsert({
+            where: { name: categoryName },
+            update: {},
+            create: { name: categoryName }
+          });
+          categoryId = category.id;
+        } else {
+          categoryId = null; // Remove categoria se string vazia
+        }
+      }
+
+      // Processar tags se fornecidas
+      let tagConnections: { tagId: string }[] = [];
+      if (tagNames !== undefined) {
+        if (tagNames && tagNames.length > 0) {
+          const tagPromises = tagNames.map(tagName =>
+            prisma.tag.upsert({
+              where: { name: tagName },
+              update: {},
+              create: { name: tagName }
+            })
+          );
+          const tags = await Promise.all(tagPromises);
+          tagConnections = tags.map(tag => ({ tagId: tag.id }));
+        }
+      }
+
+      // Atualizar os campos básicos do post
+      await prisma.post.update({
+        where: { id },
+        data: {
+          ...rest,
+          ...(categoryId !== undefined && { categoryId }),
+          // Atualizar tags se fornecidas
+          ...(tagNames !== undefined && {
+            tags: {
+              deleteMany: {},
+              create: tagConnections
+            }
+          }),
+          // Atualizar links se fornecidos
+          ...(sharedLinks !== undefined && {
+            sharedLinks: {
+              deleteMany: {},
+              create: sharedLinks.map(link => ({ platform: link.platform, url: link.url }))
+            }
+          }),
+        },
       });
 
-      // Criar novas relações se houver
-      if (relatedPostIds.length > 0) {
-        await prisma.postRelation.createMany({
-          data: relatedPostIds.map(relatedPostId => ({
-            postId: id,
-            relatedPostId
-          })),
-          skipDuplicates: true
+      // Atualizar posts relacionados separadamente se fornecido
+      if (relatedPostIds !== undefined) {
+        await prisma.postRelation.deleteMany({
+          where: { postId: id }
         });
-      }
-    }
 
-    // Retornar o post atualizado com todas as relações
-    return prisma.post.findUnique({
-      where: { id },
-      include: { 
-        author: true,
-        category: true,
-        tags: { include: { tag: true } }, 
-        relatedTo: { include: { relatedPost: true } },
-        relatedFrom: { include: { post: true } },
-        sharedLinks: true 
-      },
-    });
+        if (relatedPostIds.length > 0) {
+          await prisma.postRelation.createMany({
+            data: relatedPostIds.map(relatedPostId => ({
+              postId: id,
+              relatedPostId
+            })),
+            skipDuplicates: true
+          });
+        }
+      }
+
+      // USAR O MÉTODO SEGURO - garante retorno tipado ou erro
+      return await postService.findByIdOrThrow(id);
+
+    } catch (error) {
+      console.error('Error updating post:', error);
+      throw error; // Re-lança o erro para que o controller possa capturar
+    }
   },
 
-  // Deletar post
+  // Deletar post com limpeza de categorias e tags não utilizadas
   delete: async (id: string) => {
-    // Primeiro deletar as relações
+    // Buscar o post para obter suas relações
+    const post = await prisma.post.findUnique({
+      where: { id },
+      include: {
+        tags: { include: { tag: true } },
+        category: true
+      }
+    });
+
+    if (!post) {
+      throw new Error("Post not found");
+    }
+
+    // Deletar as relações do post
     await prisma.postRelation.deleteMany({
       where: {
         OR: [
@@ -205,35 +646,312 @@ export const postService = {
       }
     });
 
-    // Depois deletar o post
-    return prisma.post.delete({ where: { id } });
+    // Deletar o post
+    await prisma.post.delete({ where: { id } });
+
+    // Limpar tags órfãs (que não têm mais posts associados)
+    for (const postTag of post.tags) {
+      const tagUsageCount = await prisma.postTag.count({
+        where: { tagId: postTag.tag.id }
+      });
+      
+      if (tagUsageCount === 0) {
+        await prisma.tag.delete({ where: { id: postTag.tag.id } });
+      }
+    }
+
+    // Limpar categoria órfã se não tiver mais posts
+    if (post.category) {
+      const categoryUsageCount = await prisma.post.count({
+        where: { categoryId: post.category.id }
+      });
+      
+      if (categoryUsageCount === 0) {
+        await prisma.category.delete({ where: { id: post.category.id } });
+      }
+    }
+
+    return { success: true, message: "Post deleted successfully" };
   },
 
-  // Buscar posts por categoria
-  findByCategory: async (categoryId: string) => {
+  // Buscar posts por categoria (agora por nome)
+  findByCategory: async (categoryName: string) => {
     return prisma.post.findMany({ 
-      where: { categoryId }, 
+      where: { 
+        category: {
+          name: {
+            contains: categoryName,
+            mode: 'insensitive'
+          }
+        }
+      }, 
       include: { 
-        author: true, 
+        author: {
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+            avatarUrl: true,
+            verified: true
+          }
+        }, 
+        category: true,
+        tags: { include: { tag: true } },
+        _count: {
+          select: {
+            comments: true,
+            likes: true
+          }
+        }
+      },
+      orderBy: {
+        createdAt: 'desc'
+      }
+    });
+  },
+
+  // Buscar posts por tag (agora por nome)
+  findByTag: async (tagName: string) => {
+    return prisma.post.findMany({
+      where: { 
+        tags: { 
+          some: { 
+            tag: {
+              name: {
+                contains: tagName,
+                mode: 'insensitive'
+              }
+            }
+          } 
+        } 
+      },
+      include: { 
+        author: {
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+            avatarUrl: true,
+            verified: true
+          }
+        }, 
+        category: true, 
+        tags: { include: { tag: true } },
+        _count: {
+          select: {
+            comments: true,
+            likes: true
+          }
+        }
+      },
+      orderBy: {
+        createdAt: 'desc'
+      }
+    });
+  },
+
+  // NOVAS FUNÇÕES
+
+  // Listar todas as categorias com contagem de posts
+  getAllCategories: async () => {
+    return prisma.category.findMany({
+      include: {
+        _count: {
+          select: {
+            posts: true
+          }
+        }
+      },
+      orderBy: {
+        name: 'asc'
+      }
+    });
+  },
+
+  // Listar todas as tags com contagem de posts
+  getAllTags: async () => {
+    return prisma.tag.findMany({
+      include: {
+        _count: {
+          select: {
+            posts: true
+          }
+        }
+      },
+      orderBy: {
+        name: 'asc'
+      }
+    });
+  },
+
+  // Buscar posts mais curtidos
+  getMostLikedPosts: async (limit: number = 10) => {
+    return prisma.post.findMany({
+      where: {
+        published: true
+      },
+      include: {
+        author: {
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+            avatarUrl: true,
+            verified: true
+          }
+        },
+        category: true,
+        tags: { include: { tag: true } },
+        _count: {
+          select: {
+            likes: true,
+            comments: true
+          }
+        }
+      },
+      orderBy: {
+        likes: {
+          _count: 'desc'
+        }
+      },
+      take: limit
+    });
+  },
+
+  // Buscar posts mais recentes
+  getRecentPosts: async (limit: number = 10) => {
+    return prisma.post.findMany({
+      where: {
+        published: true
+      },
+      include: {
+        author: {
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+            avatarUrl: true,
+            verified: true
+          }
+        },
+        category: true,
+        tags: { include: { tag: true } },
+        _count: {
+          select: {
+            likes: true,
+            comments: true
+          }
+        }
+      },
+      orderBy: {
+        createdAt: 'desc'
+      },
+      take: limit
+    });
+  },
+
+  // Buscar posts relacionados por categoria e tags
+  findSimilarPosts: async (postId: string, limit: number = 5) => {
+    const post = await prisma.post.findUnique({
+      where: { id: postId },
+      include: {
         category: true,
         tags: { include: { tag: true } }
-      } 
+      }
     });
-  },
 
-  // Buscar posts por tag
-  findByTag: async (tagId: string) => {
+    if (!post) return [];
+
+    const tagIds = post.tags.map(pt => pt.tag.id);
+
     return prisma.post.findMany({
-      where: { tags: { some: { tagId } } },
-      include: { 
-        author: true, 
-        category: true, 
-        tags: { include: { tag: true } } 
+      where: {
+        AND: [
+          { id: { not: postId } },
+          { published: true },
+          {
+            OR: [
+              ...(post.categoryId ? [{ categoryId: post.categoryId }] : []),
+              ...(tagIds.length > 0 ? [{
+                tags: {
+                  some: {
+                    tagId: {
+                      in: tagIds
+                    }
+                  }
+                }
+              }] : [])
+            ]
+          }
+        ]
       },
+      include: {
+        author: {
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+            avatarUrl: true,
+            verified: true
+          }
+        },
+        category: true,
+        tags: { include: { tag: true } },
+        _count: {
+          select: {
+            likes: true,
+            comments: true
+          }
+        }
+      },
+      take: limit,
+      orderBy: {
+        createdAt: 'desc'
+      }
     });
   },
 
-  // Buscar posts relacionados a um post específico
+  // Buscar posts do autor
+  findByAuthor: async (authorId: string, filters?: {
+    published?: boolean;
+    limit?: number;
+    skip?: number;
+  }) => {
+    const { published, limit, skip } = filters || {};
+
+    return prisma.post.findMany({
+      where: {
+        authorId,
+        ...(published !== undefined && { published })
+      },
+      include: {
+        author: {
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+            avatarUrl: true,
+            verified: true
+          }
+        },
+        category: true,
+        tags: { include: { tag: true } },
+        _count: {
+          select: {
+            likes: true,
+            comments: true
+          }
+        }
+      },
+      orderBy: {
+        createdAt: 'desc'
+      },
+      ...(limit && { take: limit }),
+      ...(skip && { skip })
+    });
+  },
+
+  // Funcões de relação mantidas
   findRelatedPosts: async (postId: string) => {
     return prisma.post.findUnique({
       where: { id: postId },
@@ -242,7 +960,14 @@ export const postService = {
           include: {
             relatedPost: {
               include: {
-                author: true,
+                author: {
+                  select: {
+                    id: true,
+                    name: true,
+                    slug: true,
+                    avatarUrl: true
+                  }
+                },
                 category: true,
                 tags: { include: { tag: true } }
               }
@@ -253,7 +978,14 @@ export const postService = {
           include: {
             post: {
               include: {
-                author: true,
+                author: {
+                  select: {
+                    id: true,
+                    name: true,
+                    slug: true,
+                    avatarUrl: true
+                  }
+                },
                 category: true,
                 tags: { include: { tag: true } }
               }
@@ -264,7 +996,6 @@ export const postService = {
     });
   },
 
-  // Adicionar relação entre posts
   addRelation: async (postId: string, relatedPostId: string) => {
     return prisma.postRelation.create({
       data: {
@@ -274,7 +1005,6 @@ export const postService = {
     });
   },
 
-  // Remover relação entre posts
   removeRelation: async (postId: string, relatedPostId: string) => {
     return prisma.postRelation.deleteMany({
       where: {
