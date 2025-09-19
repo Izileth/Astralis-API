@@ -2,46 +2,52 @@ import { Request, Response } from "express";
 import { postService } from "../services/post.service";
 
 export const postController = {
-  create: async (req: Request, res: Response): Promise<void> => {
-    try {
-      const { 
-        authorId, 
-        title, 
-        content, 
-        description, 
-        imageUrl, 
-        videoUrl, 
-        categoryName,  // Mudança: recebe nome da categoria
-        tagNames,      // Mudança: recebe array de nomes das tags
-        relatedPostIds, 
-        sharedLinks 
-      } = req.body;
-
-      // Validações básicas
-      if (!authorId || !title || !content) {
-        res.status(400).json({ 
-          error: "Missing required fields: authorId, title, content" 
+    create: async (req: Request, res: Response): Promise<void> => {
+      try {
+        // Correção: Alinhar com o auth.middleware.ts, que define `req.userId`.
+        const authorId = (req as any).userId;
+  
+        if (!authorId) {
+          res.status(401).json({ error: "Unauthorized: User ID not found after authentication" });
+          return;
+        }
+  
+        const {
+          title,
+          content,
+          description,
+          imageUrl,
+          videoUrl,
+          categoryName,
+          tagNames,
+          relatedPostIds,
+          sharedLinks
+        } = req.body;
+  
+        // Validações básicas
+        if (!title || !content) {
+          res.status(400).json({
+            error: "Missing required fields: title, content"
+          });
+          return;
+        }
+  
+        const post = await postService.create(authorId, title, content, {
+          description,
+          imageUrl,
+          videoUrl,
+          categoryName,
+          tagNames,
+          relatedPostIds,
+          sharedLinks
         });
-        return;
+  
+        res.status(201).json(post);
+      } catch (err: any) {
+        console.error("Error creating post:", err);
+        res.status(400).json({ error: err.message });
       }
-
-      const post = await postService.create(authorId, title, content, { 
-        description, 
-        imageUrl, 
-        videoUrl, 
-        categoryName, 
-        tagNames, 
-        relatedPostIds, 
-        sharedLinks 
-      });
-
-      res.status(201).json(post);
-    } catch (err: any) {
-      console.error("Error creating post:", err);
-      res.status(400).json({ error: err.message });
-    }
-  },
-
+    },
   // Buscar todos os posts com filtros
   findAll: async (req: Request, res: Response): Promise<void> => {
     try {

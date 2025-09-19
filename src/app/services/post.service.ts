@@ -623,53 +623,55 @@ export const postService = {
 
   // Deletar post com limpeza de categorias e tags não utilizadas
   delete: async (id: string) => {
-    // Buscar o post para obter suas relações
+    // Buscar o post para obter suas relações antes da transação
     const post = await prisma.post.findUnique({
       where: { id },
       include: {
         tags: { include: { tag: true } },
-        category: true
-      }
+        category: true,
+      },
     });
 
     if (!post) {
       throw new Error("Post not found");
     }
 
-    // Deletar as relações do post
-    await prisma.postRelation.deleteMany({
-      where: {
-        OR: [
-          { postId: id },
-          { relatedPostId: id }
-        ]
+    // Usar uma transação para garantir que todas as operações sejam bem-sucedidas ou nenhuma delas
+    await prisma.$transaction(async (tx) => {
+      // 1. Remover todas as relações que dependem do post
+      await tx.postRelation.deleteMany({
+        where: { OR: [{ postId: id }, { relatedPostId: id }] },
+      });
+      await tx.postTag.deleteMany({ where: { postId: id } });
+      await tx.comment.deleteMany({ where: { postId: id } });
+      await tx.like.deleteMany({ where: { postId: id } });
+      await tx.sharedLink.deleteMany({ where: { postId: id } });
+
+      // 2. Agora, deletar o post com segurança
+      await tx.post.delete({ where: { id } });
+
+      // 3. Limpar tags órfãs (tags que não estão mais associadas a nenhum post)
+      for (const postTag of post.tags) {
+        const tagUsageCount = await tx.postTag.count({
+          where: { tagId: postTag.tag.id },
+        });
+
+        if (tagUsageCount === 0) {
+          await tx.tag.delete({ where: { id: postTag.tag.id } });
+        }
+      }
+
+      // 4. Limpar categoria órfã se não tiver mais posts
+      if (post.category) {
+        const categoryUsageCount = await tx.post.count({
+          where: { categoryId: post.category.id },
+        });
+
+        if (categoryUsageCount === 0) {
+          await tx.category.delete({ where: { id: post.category.id } });
+        }
       }
     });
-
-    // Deletar o post
-    await prisma.post.delete({ where: { id } });
-
-    // Limpar tags órfãs (que não têm mais posts associados)
-    for (const postTag of post.tags) {
-      const tagUsageCount = await prisma.postTag.count({
-        where: { tagId: postTag.tag.id }
-      });
-      
-      if (tagUsageCount === 0) {
-        await prisma.tag.delete({ where: { id: postTag.tag.id } });
-      }
-    }
-
-    // Limpar categoria órfã se não tiver mais posts
-    if (post.category) {
-      const categoryUsageCount = await prisma.post.count({
-        where: { categoryId: post.category.id }
-      });
-      
-      if (categoryUsageCount === 0) {
-        await prisma.category.delete({ where: { id: post.category.id } });
-      }
-    }
 
     return { success: true, message: "Post deleted successfully" };
   },
