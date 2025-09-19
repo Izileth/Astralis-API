@@ -117,10 +117,12 @@ model Comment {
   createdAt DateTime  @default(now())
 
   postId    String
-  post      Post      @relation(fields: [postId], references: [id])
+  post      Post      @relation(fields: [postId], references: [id], onDelete: Cascade)
 
   authorId  String
-  author    User      @relation(fields: [authorId], references: [id])
+  author    User      @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  likes     Like[] // Relação para curtidas no comentário
 }
 
 /// Curtidas
@@ -128,13 +130,19 @@ model Like {
   id        String    @id @default(cuid())
   createdAt DateTime  @default(now())
 
-  postId    String
-  post      Post      @relation(fields: [postId], references: [id])
+  // Um Like pertence a um Post OU a um Comment
+  postId    String?
+  post      Post?     @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  commentId String?
+  comment   Comment?  @relation(fields: [commentId], references: [id], onDelete: Cascade)
 
   userId    String
-  user      User      @relation(fields: [userId], references: [id])
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@unique([postId, userId])
+  // Garante que um usuário só pode curtir cada item uma vez
+  @@unique([userId, postId])
+  @@unique([userId, commentId])
 }
 
 /// Posts relacionados (auto-referência)
