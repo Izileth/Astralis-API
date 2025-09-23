@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
 import { authService } from "../services/auth.service";
-import { User } from "../../generated/prisma";
+
 export const authController = {
   register: async (req: Request, res: Response): Promise<void> => {
     try {
@@ -54,7 +54,7 @@ export const authController = {
 
   socialLoginCallback: async (req: Request, res: Response): Promise<void> => {
     try {
-      const user = req.user as User;
+      const user = req.user as any;
       if (!user) {
         res.status(401).json({ error: "Authentication failed." });
         return;
