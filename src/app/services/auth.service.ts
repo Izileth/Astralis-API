@@ -10,34 +10,34 @@ const REFRESH_TOKEN_SECRET = process.env.REFRESH_TOKEN_SECRET || "refresh-secret
 const ACCESS_TOKEN_EXPIRATION = "15m";
 const REFRESH_TOKEN_EXPIRATION = "7d";
 
-// Helper function to generate tokens and save refresh token
-const generateTokens = async (userId: string) => {
-  const accessToken = jwt.sign({ userId }, ACCESS_TOKEN_SECRET, {
-    expiresIn: ACCESS_TOKEN_EXPIRATION,
-  });
-  const refreshToken = jwt.sign({ userId }, REFRESH_TOKEN_SECRET, {
-    expiresIn: REFRESH_TOKEN_EXPIRATION,
-  });
-
-  const hashedToken = crypto
-    .createHash("sha256")
-    .update(refreshToken)
-    .digest("hex");
-
-  // Store the refresh token in the database
-  await prisma.refreshToken.create({
-    data: {
-      userId,
-      hashedToken,
-    },
-  });
-
-  return { accessToken, refreshToken };
-};
-
 export const authService = {
+  // Gerar tokens para um usuário
+  generateTokensForUser: async function (userId: string) {
+    const accessToken = jwt.sign({ userId }, ACCESS_TOKEN_SECRET, {
+      expiresIn: ACCESS_TOKEN_EXPIRATION,
+    });
+    const refreshToken = jwt.sign({ userId }, REFRESH_TOKEN_SECRET, {
+      expiresIn: REFRESH_TOKEN_EXPIRATION,
+    });
+
+    const hashedToken = crypto
+      .createHash("sha256")
+      .update(refreshToken)
+      .digest("hex");
+
+    // Armazenar o refresh token no banco de dados
+    await prisma.refreshToken.create({
+      data: {
+        userId,
+        hashedToken,
+      },
+    });
+
+    return { accessToken, refreshToken };
+  },
+
   // Registrar usuário
-  register: async (name: string, email: string, password: string) => {
+  register: async function (name: string, email: string, password: string) {
     const existingUser = await prisma.user.findUnique({ where: { email } });
     if (existingUser) throw new Error("Email já cadastrado");
 
@@ -54,19 +54,21 @@ export const authService = {
       data: { name, email, password: hashedPassword, slug },
     });
 
-    const tokens = await generateTokens(user.id);
+    const tokens = await this.generateTokensForUser(user.id);
     return { user, ...tokens };
   },
 
   // Login
-  login: async (email: string, password: string) => {
+  login: async function (email: string, password: string) {
     const user = await prisma.user.findUnique({ where: { email } });
-    if (!user) throw new Error("Usuário não encontrado");
+    if (!user || !user.password) {
+      throw new Error("Usuário não encontrado ou login social utilizado");
+    }
 
     const passwordMatch = await bcrypt.compare(password, user.password);
     if (!passwordMatch) throw new Error("Senha incorreta");
 
-    const tokens = await generateTokens(user.id);
+    const tokens = await this.generateTokensForUser(user.id);
     return { user, ...tokens };
   },
 

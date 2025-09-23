@@ -17,7 +17,7 @@ model User {
   name                 String
   slug                 String    @unique
   email                String    @unique
-  password             String
+  password             String?
   avatarUrl            String?
   bannerUrl            String?
   bio                  String?
@@ -35,6 +35,18 @@ model User {
   followers     Follow[]       @relation("followers")
   socialLinks   SocialLink[]
   refreshTokens RefreshToken[]
+  accounts      Account[]
+}
+
+/// Model para contas de provedores (Google, Discord, etc)
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  provider          String // e.g., "google", "discord"
+  providerAccountId String // The user's ID from the provider
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
 }
 
 /// Model para Refresh Tokens
