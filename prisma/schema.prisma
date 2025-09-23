@@ -12,133 +12,142 @@ datasource db {
 }
 
 /// Usuários
-
-
-
 model User {
-  id        String    @id @default(cuid())
-  name      String
-  slug      String    @unique
-  email     String    @unique
-  password  String
-  avatarUrl String?
-  bannerUrl String?
-  bio       String?
-  status    String?   @default("active")
-  verified  Boolean   @default(false)
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
+  id                   String    @id @default(cuid())
+  name                 String
+  slug                 String    @unique
+  email                String    @unique
+  password             String
+  avatarUrl            String?
+  bannerUrl            String?
+  bio                  String?
+  status               String?   @default("active")
+  verified             Boolean   @default(false)
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+  passwordResetToken   String?   @unique
+  passwordResetExpires DateTime?
 
-  posts     Post[]
-  comments  Comment[]
-  likes     Like[]
-  following Follow[]  @relation("following")
-  followers Follow[]  @relation("followers")
-  socialLinks SocialLink[]
+  posts         Post[]
+  comments      Comment[]
+  likes         Like[]
+  following     Follow[]       @relation("following")
+  followers     Follow[]       @relation("followers")
+  socialLinks   SocialLink[]
+  refreshTokens RefreshToken[]
 }
 
+/// Model para Refresh Tokens
+model RefreshToken {
+  id          String   @id @default(cuid())
+  hashedToken String   @unique
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  revoked     Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
 
 /// Seguidores / seguindo (auto-relacionamento)
 model Follow {
-  id         String   @id @default(cuid())
-  followerId String
+  id          String   @id @default(cuid())
+  followerId  String
   followingId String
-  createdAt  DateTime @default(now())
+  createdAt   DateTime @default(now())
 
-  follower   User @relation("following", fields: [followerId], references: [id])
-  following  User @relation("followers", fields: [followingId], references: [id])
+  follower  User @relation("following", fields: [followerId], references: [id])
+  following User @relation("followers", fields: [followingId], references: [id])
 
   @@unique([followerId, followingId]) // um usuário só segue outro uma vez
 }
 
 /// Links para redes sociais
 model SocialLink {
-  id        String @id @default(cuid())
-  platform  String // ex: facebook, twitter, instagram, linkedin
-  url       String
-  userId    String
-  user      User   @relation(fields: [userId], references: [id])
+  id       String @id @default(cuid())
+  platform String // ex: facebook, twitter, instagram, linkedin
+  url      String
+  userId   String
+  user     User   @relation(fields: [userId], references: [id])
 }
 
 /// Categorias de post
 model Category {
-  id        String  @id @default(cuid())
-  name      String  @unique
-  posts     Post[]
+  id    String @id @default(cuid())
+  name  String @unique
+  posts Post[]
 }
 
 /// Tags
 model Tag {
-  id        String  @id @default(cuid())
-  name      String  @unique
-  posts     PostTag[]
+  id    String    @id @default(cuid())
+  name  String    @unique
+  posts PostTag[]
 }
 
 /// Posts
 model Post {
-  id             String      @id @default(cuid())
-  title          String
-  slug           String      @unique
-  description    String?
-  content        String
-  imageUrl       String?
-  videoUrl       String?
-  published      Boolean     @default(false)
-  createdAt      DateTime    @default(now())
-  updatedAt      DateTime    @updatedAt
+  id          String   @id @default(cuid())
+  title       String
+  slug        String   @unique
+  description String?
+  content     String
+  imageUrl    String?
+  videoUrl    String?
+  published   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
-  authorId       String
-  author         User        @relation(fields: [authorId], references: [id])
-  categoryId     String?
-  category       Category?   @relation(fields: [categoryId], references: [id])
-  comments       Comment[]
-  likes          Like[]
-  tags           PostTag[]
-  relatedFrom    PostRelation[] @relation("PostRelatedFrom")
-  relatedTo      PostRelation[] @relation("PostRelatedTo")
-  sharedLinks    SharedLink[]
+  authorId    String
+  author      User         @relation(fields: [authorId], references: [id])
+  categoryId  String?
+  category    Category?    @relation(fields: [categoryId], references: [id])
+  comments    Comment[]
+  likes       Like[]
+  tags        PostTag[]
+  relatedFrom PostRelation[] @relation("PostRelatedFrom")
+  relatedTo   PostRelation[] @relation("PostRelatedTo")
+  sharedLinks SharedLink[]
 }
 
 /// Relação N:N entre Post e Tag
 model PostTag {
-  postId  String
-  tagId   String
+  postId String
+  tagId  String
 
-  post    Post @relation(fields: [postId], references: [id])
-  tag     Tag  @relation(fields: [tagId], references: [id])
+  post Post @relation(fields: [postId], references: [id])
+  tag  Tag  @relation(fields: [tagId], references: [id])
 
   @@id([postId, tagId])
 }
 
 /// Comentários
 model Comment {
-  id        String    @id @default(cuid())
+  id        String   @id @default(cuid())
   content   String
-  createdAt DateTime  @default(now())
+  createdAt DateTime @default(now())
 
-  postId    String
-  post      Post      @relation(fields: [postId], references: [id], onDelete: Cascade)
+  postId String
+  post   Post @relation(fields: [postId], references: [id], onDelete: Cascade)
 
-  authorId  String
-  author    User      @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  authorId String
+  author   User @relation(fields: [authorId], references: [id], onDelete: Cascade)
 
-  likes     Like[] // Relação para curtidas no comentário
+  likes Like[] // Relação para curtidas no comentário
 }
 
 /// Curtidas
 model Like {
-  id        String    @id @default(cuid())
-  createdAt DateTime  @default(now())
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
 
   // Um Like pertence a um Post OU a um Comment
   postId    String?
-  post      Post?     @relation(fields: [postId], references: [id], onDelete: Cascade)
-
+  post      Post?    @relation(fields: [postId], references: [id], onDelete: Cascade)
   commentId String?
-  comment   Comment?  @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  comment   Comment? @relation(fields: [commentId], references: [id], onDelete: Cascade)
 
-  userId    String
-  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId String
+  user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   // Garante que um usuário só pode curtir cada item uma vez
   @@unique([userId, postId])
@@ -147,22 +156,22 @@ model Like {
 
 /// Posts relacionados (auto-referência)
 model PostRelation {
-  id           String @id @default(cuid())
-  postId       String
+  id            String @id @default(cuid())
+  postId        String
   relatedPostId String
 
   // Usando nomes de relação diferentes para evitar conflito
-  post         Post   @relation("PostRelatedFrom", fields: [postId], references: [id])
-  relatedPost  Post   @relation("PostRelatedTo", fields: [relatedPostId], references: [id])
-  
+  post        Post @relation("PostRelatedFrom", fields: [postId], references: [id])
+  relatedPost Post @relation("PostRelatedTo", fields: [relatedPostId], references: [id])
+
   @@unique([postId, relatedPostId])
 }
 
 /// Links compartilhados (ex: redes sociais)
 model SharedLink {
-  id        String   @id @default(cuid())
-  platform  String   // ex: facebook, twitter
-  url       String
-  postId    String
-  post      Post     @relation(fields: [postId], references: [id])
+  id       String @id @default(cuid())
+  platform String // ex: facebook, twitter
+  url      String
+  postId   String
+  post     Post   @relation(fields: [postId], references: [id])
 }
