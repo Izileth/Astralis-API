@@ -1,8 +1,10 @@
 import { prisma } from "../prisma/client";
+
 import { slugify } from "../utils/slugfy";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import crypto from "crypto";
+
 
 // Environment variables
 const ACCESS_TOKEN_SECRET = process.env.ACCESS_TOKEN_SECRET || "access-secret";
@@ -60,7 +62,17 @@ export const authService = {
 
   // Login
   login: async function (email: string, password: string) {
-    const user = await prisma.user.findUnique({ where: { email } });
+    const user = await prisma.user.findUnique({
+      where: { email },
+      include: {
+        posts: true,
+        comments: true,
+        likes: true,
+        followers: true,
+        following: true,
+        socialLinks: true,
+      },
+    });
     if (!user || !user.password) {
       throw new Error("Usuário não encontrado ou login social utilizado");
     }

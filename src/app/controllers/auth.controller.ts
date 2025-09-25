@@ -1,5 +1,7 @@
 import { Request, Response } from "express";
 import { authService } from "../services/auth.service";
+import { AuthRequest } from "../middleware/auth.middleware";
+import { userService } from "../services/user.service";
 
 export const authController = {
   register: async (req: Request, res: Response): Promise<void> => {
@@ -19,6 +21,24 @@ export const authController = {
       res.json(result);
     } catch (err: any) {
       res.status(400).json({ error: err.message });
+    }
+  },
+
+  me: async (req: AuthRequest, res: Response): Promise<void> => {
+    try {
+      const userId = req.userId;
+      if (!userId) {
+        res.status(401).json({ error: "Unauthorized" });
+        return;
+      }
+      const user = await userService.findById(userId);
+      if (!user) {
+        res.status(404).json({ error: "User not found" });
+        return;
+      }
+      res.json({ user });
+    } catch (err: any) {
+      res.status(500).json({ error: "Internal server error" });
     }
   },
 

@@ -1,11 +1,13 @@
 import { Router } from "express";
 import { authController } from "../controllers/auth.controller";
 import passport from "../config/passport";
+import { requireAuth } from "../middleware/auth.middleware";
 
 const router = Router();
 
 router.post("/register", authController.register);
 router.post("/login", authController.login);
+router.get("/me", requireAuth, authController.me);
 
 // Rotas de atualização de token e redefinição de senha
 router.post("/refresh-token", authController.refreshToken);
