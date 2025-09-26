@@ -1,5 +1,6 @@
 import { Request, Response } from "express";
 import { userService } from "../services/user.service";
+import uploadService from '../services/upload.service';
 
 export const userController = {
   create: async (req: Request, res: Response): Promise<void> => {
@@ -164,6 +165,36 @@ export const userController = {
       const { id } = req.params;
       const links = await userService.getSocialLinks(id);
       res.json(links);
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  },
+
+  uploadAvatar: async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { id } = req.params;
+      if (!req.file) {
+        res.status(400).json({ error: "File is required" });
+        return;
+      }
+      const avatarUrl = await uploadService.uploadFile(req.file, `avatars/${id}`);
+      const user = await userService.update(id, { avatarUrl });
+      res.json(user);
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  },
+
+  uploadBanner: async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { id } = req.params;
+      if (!req.file) {
+        res.status(400).json({ error: "File is required" });
+        return;
+      }
+      const bannerUrl = await uploadService.uploadFile(req.file, `banners/${id}`);
+      const user = await userService.update(id, { bannerUrl });
+      res.json(user);
     } catch (err: any) {
       res.status(500).json({ error: err.message });
     }

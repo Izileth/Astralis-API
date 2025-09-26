@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { postController } from "../controllers/post.controller";
 import { requireAuth, optionalAuth } from "../middleware/auth.middleware";
+import upload from "../middleware/upload.middleware";
 
 const router = Router();
 
@@ -41,5 +42,8 @@ router.patch("/:id/toggle-publish", requireAuth, postController.togglePublish); 
 // === ROTAS DE RELAÇÕES ENTRE POSTS ===
 router.post("/relations", requireAuth, postController.addRelation); // Adicionar relação (privado)
 router.delete("/relations", requireAuth, postController.removeRelation); // Remover relação (privado)
+
+// Uploads
+router.post("/:id/media", requireAuth, upload.single("media"), postController.uploadMedia);
 
 export default router;

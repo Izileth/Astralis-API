@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { userController } from "../controllers/user.controller";
 import { requireAuth, optionalAuth } from "../middleware/auth.middleware";
+import upload from "../middleware/upload.middleware";
 
 const router = Router();
 
@@ -22,5 +23,9 @@ router.get("/:id/following", optionalAuth, userController.getFollowing); // List
 router.post("/:id/social-links", requireAuth, userController.addSocialLink); // Adicionar link social (privado)
 router.get("/:id/social", optionalAuth, userController.getSocialLinks); // Ver links sociais (público)
 router.delete("/:id/social-links", requireAuth, userController.removeSocialLink); // Remover link social (privado)
+
+// Uploads
+router.post("/:id/avatar", requireAuth, upload.single("avatar"), userController.uploadAvatar);
+router.post("/:id/banner", requireAuth, upload.single("banner"), userController.uploadBanner);
 
 export default router;

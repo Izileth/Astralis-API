@@ -1,5 +1,6 @@
 import { Request, Response } from "express";
 import { postService } from "../services/post.service";
+import uploadService from '../services/upload.service';
 
 export const postController = {
     create: async (req: Request, res: Response): Promise<void> => {
@@ -526,6 +527,27 @@ export const postController = {
       });
     } catch (err: any) {
       console.error("Error searching posts:", err);
+      res.status(500).json({ error: err.message });
+    }
+  },
+
+  uploadMedia: async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { id } = req.params;
+      if (!req.file) {
+        res.status(400).json({ error: "File is required" });
+        return;
+      }
+
+      const mediaUrl = await uploadService.uploadFile(req.file, `posts/${id}`);
+
+      // Determine if it's an image or video based on mimetype
+      const isVideo = req.file.mimetype.startsWith('video');
+      const updateData = isVideo ? { videoUrl: mediaUrl } : { imageUrl: mediaUrl };
+
+      const post = await postService.update(id, updateData);
+      res.json(post);
+    } catch (err: any) {
       res.status(500).json({ error: err.message });
     }
   }
