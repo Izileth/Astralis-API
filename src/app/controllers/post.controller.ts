@@ -550,5 +550,20 @@ export const postController = {
     } catch (err: any) {
       res.status(500).json({ error: err.message });
     }
+  },
+
+  uploadImage: async (req: Request, res: Response): Promise<void> => {
+    try {
+      if (!req.file) {
+        res.status(400).json({ error: "File is required" });
+        return;
+      }
+
+      const imageUrl = await uploadService.uploadFile(req.file, 'posts/images');
+
+      res.json({ url: imageUrl });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
   }
 };

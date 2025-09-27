@@ -1,102 +1,181 @@
-# RESTful API with Node.js, Express, and Prisma
+# Astralis API
 
-This is a robust and scalable RESTful API built with Node.js, Express, and Prisma ORM. It provides a foundation for creating, reading, updating, and deleting resources, with a focus on security, performance, and maintainability.
+![License: ISC](https://img.shields.io/badge/License-ISC-blue.svg)
+![TypeScript](https://img.shields.io/badge/TypeScript-5.7.3-blue)
+![Node.js](https://img.shields.io/badge/Node.js-v20.x-green)
+![Express](https://img.shields.io/badge/Express-4.x-green)
+![Prisma](https://img.shields.io/badge/Prisma-6.x-lightgrey)
 
-## Features
+API RESTful para uma plataforma de conteúdo, como um blog ou rede social, construída com Node.js, Express, TypeScript e Prisma.
 
-*   **CRUD Operations:** Full support for creating, reading, updating, and deleting resources.
-*   **Authentication and Authorization:** Secure endpoints with JWT-based authentication and middleware.
-*   **Database Management:** Uses Prisma for intuitive and safe database access.
-*   **Clear Structure:** Organized project structure for easy navigation and development.
-*   **API Documentation:** Includes detailed API documentation with examples.
-*   **Testing:** Comes with a pre-configured testing environment using Jest.
+## Visão Geral
 
-## Technologies Used
+A Astralis API fornece um backend robusto para gerenciamento de usuários, posts, comentários, likes, e mais. Inclui autenticação baseada em JWT, upload de mídias para Cloudinary, e um sistema de documentação de API com Swagger.
 
-*   **Node.js:** JavaScript runtime for building the server-side application.
-*   **Express:** Web framework for Node.js, used to create the RESTful API.
-*   **Prisma:** Modern database toolkit for PostgreSQL, MySQL, and SQLite.
-*   **TypeScript:** Superset of JavaScript that adds static typing.
-*   **JWT (JSON Web Tokens):** For securing API endpoints.
-*   **Jest:** For writing and running tests.
-*   **Docker:** For containerizing the application and database.
+## Principais Funcionalidades
 
-## Getting Started
+- **Autenticação**: Registro, login (local e social com Google/Discord), e gerenciamento de sessão com JWT.
+- **Gerenciamento de Usuários**: CRUD de usuários, perfis, avatares, banners, e sistema de seguir/deixar de seguir.
+- **Gerenciamento de Posts**: CRUD completo para posts, com suporte a rascunhos, publicação, categorias e tags.
+- **Conteúdo Rico**: Upload de imagens e vídeos associados aos posts.
+- **Interação Social**: Sistema de comentários e likes em posts e comentários.
+- **Descoberta de Conteúdo**: Rotas para encontrar posts populares, recentes, similares e relacionados.
+- **Busca**: Funcionalidade de busca avançada por posts.
+- **Documentação da API**: Geração automática de documentação com Swagger.
 
-### Prerequisites
+## Tecnologias Utilizadas
 
-*   Node.js (v14 or later)
-*   npm or yarn
-*   Docker (for running the database)
+- **Backend**: Node.js, Express, TypeScript
+- **ORM**: Prisma
+- **Banco de Dados**: PostgreSQL (recomendado)
+- **Autenticação**: JWT (JSON Web Tokens), Passport.js para OAuth
+- **Upload de Arquivos**: Multer, Cloudinary
+- **Testes**: Jest, Supertest (configuração inicial)
+- **Containerização**: Docker
 
-### Installation
+## Começando
 
-1.  **Clone the repository:**
+Siga estas instruções para ter uma cópia do projeto rodando em sua máquina local para desenvolvimento e testes.
 
-    ```bash
-    git clone https://github.com/your-username/crud-api.git
-    cd crud-api
-    ```
+### Pré-requisitos
 
-2.  **Install dependencies:**
+- [Node.js](https://nodejs.org/) (versão 20.x ou superior)
+- [Docker](https://www.docker.com/) (opcional, para o banco de dados)
+- Um arquivo `.env` na raiz do projeto com as variáveis de ambiente. Veja `env.example` para um modelo.
 
-    ```bash
-    npm install
-    ```
+### Instalação
 
-3.  **Set up the database:**
+1. **Clone o repositório:**
+   ```bash
+   git clone https://github.com/seu-usuario/astralis-api.git
+   cd astralis-api
+   ```
 
-    *   Start the PostgreSQL database using Docker:
+2. **Instale as dependências:**
+   ```bash
+   npm install
+   ```
 
-        ```bash
-        docker-compose up -d
-        ```
+3. **Configure as variáveis de ambiente:**
+   Crie um arquivo `.env` na raiz do projeto e adicione as chaves necessárias (banco de dados, JWT, Cloudinary, etc.).
 
-    *   Apply the database schema:
+4. **Inicie o banco de dados com Docker:**
+   ```bash
+   docker-compose up -d
+   ```
 
-        ```bash
-        npx prisma db push
-        ```
+5. **Aplique as migrações do Prisma:**
+   ```bash
+   npx prisma migrate dev
+   ```
 
-4.  **Start the server:**
+### Rodando a Aplicação
 
-    ```bash
-    npm run dev
-    ```
+- **Modo de Desenvolvimento:**
+  ```bash
+  npm run dev
+  ```
+  O servidor irá reiniciar automaticamente a cada mudança nos arquivos.
 
-The API will be available at `http://localhost:3000`.
+- **Modo de Produção:**
+  ```bash
+  npm run build
+  npm start
+  ```
 
-## API Endpoints
+## Documentação da API
 
-The following are the main endpoints provided by the API:
+A documentação completa da API é gerada automaticamente pelo Swagger e está disponível em:
 
-*   `POST /auth/register`: Register a new user.
-*   `POST /auth/login`: Log in and get a JWT token.
-*   `GET /users`: Get a list of all users.
-*   `GET /users/:id`: Get a specific user by ID.
-*   `PUT /users/:id`: Update a user's information.
-*   `DELETE /users/:id`: Delete a user.
-*   `GET /posts`: Get a list of all posts.
-*   `POST /posts`: Create a new post.
-*   `GET /posts/:id`: Get a specific post by ID.
-*   `PUT /posts/:id`: Update a post.
-*   `DELETE /posts/:id`: Delete a post.
+`http://localhost:3000/api-docs`
 
-For more details on each endpoint, please refer to the `api.http` file.
+## Mapa de Rotas da API
 
-## Database Schema
+Todas as rotas são prefixadas com `/api`.
 
-The database schema is defined in the `prisma/schema.prisma` file. It includes the following models:
+### Autenticação (`/auth`)
 
-*   `User`: Represents a user of the application.
-*   `Post`: Represents a post created by a user.
-*   `Comment`: Represents a comment on a post.
-*   `Like`: Represents a like on a post.
+| Método | Rota                  | Descrição                                  | Protegido |
+|--------|-----------------------|--------------------------------------------|-----------|
+| POST   | `/register`           | Registra um novo usuário.                  | Não       |
+| POST   | `/login`              | Autentica um usuário e retorna um token.   | Não       |
+| GET    | `/me`                 | Retorna os dados do usuário autenticado.   | Sim       |
+| POST   | `/refresh-token`      | Gera um novo token de acesso.              | Sim       |
+| POST   | `/forgot-password`    | Envia um link de redefinição de senha.     | Não       |
+| POST   | `/reset-password`     | Redefine a senha do usuário.               | Não       |
+| GET    | `/google`             | Inicia o fluxo de autenticação com Google. | Não       |
+| GET    | `/google/callback`    | Callback da autenticação com Google.       | Não       |
+| GET    | `/discord`            | Inicia o fluxo de autenticação com Discord.| Não       |
+| GET    | `/discord/callback`   | Callback da autenticação com Discord.      | Não       |
 
-## Contributing
+### Usuários (`/users`)
 
-Contributions are welcome! If you find any issues or have suggestions for improvements, please open an issue or submit a pull request.
+| Método | Rota                  | Descrição                                  | Protegido |
+|--------|-----------------------|--------------------------------------------|-----------|
+| POST   | `/`                   | Cria um novo usuário (alternativa ao register). | Não       |
+| GET    | `/profile`            | Lista todos os usuários.                   | Sim       |
+| GET    | `/profile/:slug`      | Busca um usuário pelo seu slug.            | Não       |
+| GET    | `/:id`                | Busca um usuário pelo seu ID.              | Não       |
+| PUT    | `/:id`                | Atualiza os dados de um usuário.           | Sim       |
+| DELETE | `/:id`                | Deleta um usuário.                         | Sim       |
+| POST   | `/follow`             | Seguir um usuário.                         | Sim       |
+| DELETE | `/unfollow`           | Deixar de seguir um usuário.               | Sim       |
+| GET    | `/:id/followers`      | Lista os seguidores de um usuário.         | Não       |
+| GET    | `/:id/following`      | Lista quem um usuário está seguindo.       | Não       |
+| POST   | `/:id/avatar`         | Upload do avatar do usuário.               | Sim       |
+| POST   | `/:id/banner`         | Upload do banner do usuário.               | Sim       |
 
-## License
+### Posts (`/posts`)
 
-This project is licensed under the MIT License. See the `LICENSE` file for more details.
+| Método | Rota                       | Descrição                                  | Protegido |
+|--------|----------------------------|--------------------------------------------|-----------|
+| POST   | `/`                        | Cria um novo post.                         | Sim       |
+| GET    | `/`                        | Lista todos os posts com filtros.          | Não       |
+| GET    | `/slug/:slug`              | Busca um post pelo seu slug.               | Não       |
+| GET    | `/:id`                     | Busca um post pelo seu ID.                 | Não       |
+| PUT    | `/:id`                     | Atualiza um post.                          | Sim       |
+| DELETE | `/:id`                     | Deleta um post.                            | Sim       |
+| GET    | `/categories/all`          | Lista todas as categorias.                 | Não       |
+| GET    | `/tags/all`                | Lista todas as tags.                       | Não       |
+| GET    | `/category/:categoryName`  | Busca posts por categoria.                 | Não       |
+| GET    | `/tag/:tagName`            | Busca posts por tag.                       | Não       |
+| GET    | `/discover/most-liked`     | Lista os posts mais curtidos.              | Não       |
+| GET    | `/discover/recent`         | Lista os posts mais recentes.              | Não       |
+| GET    | `/utils/stats`             | Retorna estatísticas sobre os posts.       | Não       |
+| GET    | `/utils/search`            | Realiza uma busca avançada nos posts.      | Não       |
+| POST   | `/utils/upload-image`      | Faz upload de uma imagem para um post.     | Sim       |
+| GET    | `/author/:authorId`        | Busca posts de um autor específico.        | Não       |
+| GET    | `/:id/similar`             | Encontra posts similares.                  | Não       |
+| GET    | `/:id/related`             | Lista posts relacionados.                  | Não       |
+| PATCH  | `/:id/toggle-publish`      | Publica ou despublica um post.             | Sim       |
+| POST   | `/relations`               | Adiciona uma relação entre dois posts.     | Sim       |
+| DELETE | `/relations`               | Remove uma relação entre dois posts.       | Sim       |
+| POST   | `/:id/media`               | Faz upload de mídia (imagem/vídeo) para um post. | Sim       |
+
+### Comentários (`/comments`)
+
+| Método | Rota                  | Descrição                                  | Protegido |
+|--------|-----------------------|--------------------------------------------|-----------|
+| POST   | `/`                   | Adiciona um comentário a um post.          | Sim       |
+| GET    | `/post/:postId`       | Lista todos os comentários de um post.     | Não       |
+| PUT    | `/:id`                | Atualiza um comentário.                    | Sim       |
+| DELETE | `/:id`                | Deleta um comentário.                      | Sim       |
+
+### Likes (`/likes`)
+
+| Método | Rota                       | Descrição                                  | Protegido |
+|--------|----------------------------|--------------------------------------------|-----------|
+| POST   | `/posts`                   | Curte um post.                             | Sim       |
+| DELETE | `/posts`                   | Descurte um post.                          | Sim       |
+| GET    | `/posts/count/:postId`     | Conta as curtidas de um post.              | Não       |
+| POST   | `/comments/:commentId`     | Curte um comentário.                       | Sim       |
+| DELETE | `/comments/:commentId`     | Descurte um comentário.                    | Sim       |
+| GET    | `/comments/count/:commentId`| Conta as curtidas de um comentário.      | Não       |
+
+## Contribuição
+
+Contribuições são bem-vindas! Sinta-se à vontade para abrir uma issue ou enviar um pull request.
+
+## Licença
+
+Este projeto está licenciado sob a licença ISC. Veja o arquivo [LICENSE](LICENSE) para mais detalhes.

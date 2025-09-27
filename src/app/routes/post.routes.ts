@@ -46,4 +46,7 @@ router.delete("/relations", requireAuth, postController.removeRelation); // Remo
 // Uploads
 router.post("/:id/media", requireAuth, upload.single("media"), postController.uploadMedia);
 
+// Rota para upload de imagem
+router.post("/utils/upload-image", requireAuth, upload.single("image"), postController.uploadImage);
+
 export default router;
