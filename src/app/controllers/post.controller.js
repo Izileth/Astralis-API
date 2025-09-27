@@ -473,5 +473,18 @@ exports.postController = {
         catch (err) {
             res.status(500).json({ error: err.message });
         }
+    }),
+    uploadImage: (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+        try {
+            if (!req.file) {
+                res.status(400).json({ error: "File is required" });
+                return;
+            }
+            const imageUrl = yield upload_service_1.default.uploadFile(req.file, 'posts/images');
+            res.json({ url: imageUrl });
+        }
+        catch (err) {
+            res.status(500).json({ error: err.message });
+        }
     })
 };

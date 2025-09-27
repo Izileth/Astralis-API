@@ -39,4 +39,6 @@ router.post("/relations", auth_middleware_1.requireAuth, post_controller_1.postC
 router.delete("/relations", auth_middleware_1.requireAuth, post_controller_1.postController.removeRelation); // Remover relação (privado)
 // Uploads
 router.post("/:id/media", auth_middleware_1.requireAuth, upload_middleware_1.default.single("media"), post_controller_1.postController.uploadMedia);
+// Rota para upload de imagem
+router.post("/utils/upload-image", auth_middleware_1.requireAuth, upload_middleware_1.default.single("image"), post_controller_1.postController.uploadImage);
 exports.default = router;
