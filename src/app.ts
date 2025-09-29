@@ -15,7 +15,7 @@ const app = express();
 
 const allowedOrigins = [
   'https://astralis-steel.vercel.app',
-  'https://astralis-steel.vercel.app/',
+  'https://astralis-steel.vercel.app',
   'http://localhost:5656',
 ];
 
