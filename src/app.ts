@@ -14,9 +14,9 @@ import { setupSwagger } from "./swagger";
 const app = express();
 
 const allowedOrigins = [
-  'http://localhost:5656',
   'https://astralis-steel.vercel.app',
-  'https://astralis-steel.vercel.app/'
+  'https://astralis-steel.vercel.app/',
+  'http://localhost:5656',
 ];
 
 app.use(cors({
