@@ -146,6 +146,26 @@ exports.postService = {
                         contains: filters.search,
                         mode: 'insensitive'
                     }
+                },
+                {
+                    category: {
+                        name: {
+                            contains: filters.search,
+                            mode: 'insensitive'
+                        }
+                    }
+                },
+                {
+                    tags: {
+                        some: {
+                            tag: {
+                                name: {
+                                    contains: filters.search,
+                                    mode: 'insensitive'
+                                }
+                            }
+                        }
+                    }
                 }
             ];
         }
